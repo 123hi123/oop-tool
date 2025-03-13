@@ -1,0 +1,19 @@
+{
+  "image_path": "C:/Users/joego/OneDrive/Desktop/oop tool/area_marker/InTheWall.png",
+  "areas": {
+    "不能放的": [
+      [
+        [
+          98.0,
+          126.5
+        ],
+        [
+          213.0,
+          -68.5
+        ]
+      ]
+    ],
+    "水路": []
+  },
+  "timestamp": "2025-03-13 21:43:14"
+}
