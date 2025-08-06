@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片旋轉預覽工具</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>圖片旋轉預覽工具</h1>
+        <div class="upload-section">
+            <label for="image-upload" class="upload-label">選擇圖片</label>
+            <input type="file" id="image-upload" accept="image/*">
+        </div>
+        
+        <div class="preview-container">
+            <div class="preview-wrapper">
+                <img id="preview-image" alt="預覽圖片">
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="slider-container">
+                <label for="rotation-slider">旋轉角度: <span id="rotation-value">0</span>°</label>
+                <input type="range" id="rotation-slider" min="0" max="360" value="0">
+            </div>
+            <div class="buttons-container">
+                <button id="reset-button">重置</button>
+                <button id="download-button" disabled>下載旋轉後的圖片</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html> 

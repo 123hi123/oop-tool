@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片裁剪與旋轉工具</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>圖片裁剪與旋轉工具</h1>
+        
+        <div class="upload-section">
+            <label for="imageInput" class="upload-btn">選擇圖片</label>
+            <input type="file" id="imageInput" accept="image/*">
+        </div>
+        
+        <div class="editor-container">
+            <div class="canvas-container">
+                <canvas id="sourceCanvas"></canvas>
+                <canvas id="selectionCanvas"></canvas>
+            </div>
+            
+            <div class="preview-container" style="display: none;">
+                <h2>預覽</h2>
+                <canvas id="previewCanvas"></canvas>
+                
+                <div class="controls">
+                    <button id="rotateLeftBtn">向左旋轉</button>
+                    <button id="rotateRightBtn">向右旋轉</button>
+                    <button id="downloadBtn">下載圖片</button>
+                    <button id="resetBtn">重新選擇</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>使用說明：</h3>
+            <ol>
+                <li>點擊"選擇圖片"上傳您的圖片（圖片將顯示在1024x1024的畫布上）</li>
+                <li>在圖片上點擊不同位置來選擇您想要的區域頂點</li>
+                <li>點選至少三個點以形成一個封閉區域</li>
+                <li>點擊第一個點或雙擊任意位置自動完成選擇並裁剪</li>
+                <li>使用旋轉滑動條可精確調整圖片角度（1-359度）</li>
+                <li>也可使用"向左旋轉"或"向右旋轉"按鈕進行90度旋轉</li>
+                <li>完成後點擊"下載圖片"</li>
+            </ol>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 

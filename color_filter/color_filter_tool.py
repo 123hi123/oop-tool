@@ -2,8 +2,9 @@ import sys
 import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QLabel, QPushButton, 
                             QVBoxLayout, QHBoxLayout, QWidget, QFileDialog, 
-                            QComboBox, QSlider, QGroupBox)
-from PyQt6.QtGui import QPixmap, QImage
+                            QComboBox, QSlider, QGroupBox, QListWidget, 
+                            QCheckBox, QMessageBox, QColorDialog)
+from PyQt6.QtGui import QPixmap, QImage, QColor
 from PyQt6.QtCore import Qt
 from PIL import Image, ImageEnhance, ImageOps
 import numpy as np
@@ -12,13 +13,18 @@ class ColorFilterTool(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("圖片濾鏡工具")
-        self.setGeometry(100, 100, 1000, 600)
+        self.setGeometry(100, 100, 1200, 700)
         
         # 初始化變數
-        self.original_image = None
-        self.current_image = None
+        self.original_images = []  # 存儲多個圖片
+        self.current_images = []   # 存儲處理後的多個圖片
+        self.image_paths = []      # 存儲所有圖片路徑
+        self.selected_image_index = -1  # 當前選擇的圖片索引
         self.filter_color = "red"  # 默認濾鏡顏色
         self.filter_intensity = 0.5  # 默認濾鏡強度
+        self.gray_mode = False     # 灰度模式
+        self.background_color = (255, 255, 255)  # 默認背景顏色（白色）
+        self.bg_threshold = 30     # 背景顏色閾值
         
         # 創建UI
         self.init_ui()
@@ -31,9 +37,54 @@ class ColorFilterTool(QMainWindow):
         left_panel = QVBoxLayout()
         
         # 載入圖片按鈕
-        self.load_btn = QPushButton("載入圖片")
-        self.load_btn.clicked.connect(self.load_image)
+        self.load_btn = QPushButton("載入多張圖片")
+        self.load_btn.clicked.connect(self.load_images)
         left_panel.addWidget(self.load_btn)
+        
+        # 圖片列表
+        images_group = QGroupBox("已載入圖片")
+        images_layout = QVBoxLayout()
+        self.images_list = QListWidget()
+        self.images_list.currentRowChanged.connect(self.select_image)
+        images_layout.addWidget(self.images_list)
+        images_group.setLayout(images_layout)
+        left_panel.addWidget(images_group)
+        
+        # 灰度模式選項
+        self.gray_checkbox = QCheckBox("灰度模式 (添加_gray後綴)")
+        self.gray_checkbox.stateChanged.connect(self.update_filter)
+        left_panel.addWidget(self.gray_checkbox)
+        
+        # 背景顏色設置
+        bg_color_group = QGroupBox("背景顏色設置 (灰度模式下)")
+        bg_color_layout = QVBoxLayout()
+        
+        # 選擇背景顏色按鈕
+        self.bg_color_btn = QPushButton("選擇背景顏色")
+        self.bg_color_btn.clicked.connect(self.select_background_color)
+        bg_color_layout.addWidget(self.bg_color_btn)
+        
+        # 顯示當前背景顏色的標籤
+        self.bg_color_preview = QLabel("當前背景顏色")
+        self.bg_color_preview.setFixedHeight(20)
+        self.bg_color_preview.setStyleSheet(f"background-color: rgb(255, 255, 255); border: 1px solid black;")
+        bg_color_layout.addWidget(self.bg_color_preview)
+        
+        # 背景閾值設置
+        bg_threshold_layout = QHBoxLayout()
+        bg_threshold_layout.addWidget(QLabel("背景閾值:"))
+        self.bg_threshold_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bg_threshold_slider.setMinimum(0)
+        self.bg_threshold_slider.setMaximum(100)
+        self.bg_threshold_slider.setValue(30)  # 默認30
+        self.bg_threshold_slider.valueChanged.connect(self.update_bg_threshold)
+        bg_threshold_layout.addWidget(self.bg_threshold_slider)
+        self.bg_threshold_label = QLabel("30")
+        bg_threshold_layout.addWidget(self.bg_threshold_label)
+        bg_color_layout.addLayout(bg_threshold_layout)
+        
+        bg_color_group.setLayout(bg_color_layout)
+        left_panel.addWidget(bg_color_group)
         
         # 濾鏡顏色選擇
         color_group = QGroupBox("濾鏡顏色")
@@ -61,8 +112,14 @@ class ColorFilterTool(QMainWindow):
         intensity_group.setLayout(intensity_layout)
         left_panel.addWidget(intensity_group)
         
-        # 保存按鈕
-        self.save_btn = QPushButton("保存圖片")
+        # 處理並保存按鈕
+        self.process_all_btn = QPushButton("處理並保存所有圖片")
+        self.process_all_btn.clicked.connect(self.process_and_save_all)
+        self.process_all_btn.setEnabled(False)  # 初始禁用，直到加載了圖片
+        left_panel.addWidget(self.process_all_btn)
+        
+        # 保存當前按鈕
+        self.save_btn = QPushButton("僅保存當前圖片")
         self.save_btn.clicked.connect(self.save_image)
         self.save_btn.setEnabled(False)  # 初始禁用，直到加載了圖片
         left_panel.addWidget(self.save_btn)
@@ -76,18 +133,18 @@ class ColorFilterTool(QMainWindow):
         # 原始圖片
         original_group = QGroupBox("原始圖片")
         original_layout = QVBoxLayout()
-        self.original_label = QLabel()
+        self.original_label = QLabel("請載入圖片...")
         self.original_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.original_label.setMinimumSize(400, 200)
+        self.original_label.setMinimumSize(500, 250)
         original_layout.addWidget(self.original_label)
         original_group.setLayout(original_layout)
         
         # 濾鏡效果圖片
         filtered_group = QGroupBox("濾鏡效果")
         filtered_layout = QVBoxLayout()
-        self.filtered_label = QLabel()
+        self.filtered_label = QLabel("處理後的圖片會顯示在這裡...")
         self.filtered_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.filtered_label.setMinimumSize(400, 200)
+        self.filtered_label.setMinimumSize(500, 250)
         filtered_layout.addWidget(self.filtered_label)
         filtered_group.setLayout(filtered_layout)
         
@@ -110,26 +167,65 @@ class ColorFilterTool(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
     
-    def load_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "選擇圖片", "", "圖片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"
+    def select_background_color(self):
+        color = QColorDialog.getColor(QColor(*self.background_color), self, "選擇背景顏色")
+        if color.isValid():
+            self.background_color = (color.red(), color.green(), color.blue())
+            self.bg_color_preview.setStyleSheet(f"background-color: rgb({color.red()}, {color.green()}, {color.blue()}); border: 1px solid black;")
+            self.update_filter()
+    
+    def update_bg_threshold(self):
+        value = self.bg_threshold_slider.value()
+        self.bg_threshold_label.setText(str(value))
+        self.bg_threshold = value
+        self.update_filter()
+    
+    def load_images(self):
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "選擇多張圖片", "", "圖片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
         
-        if file_path:
-            # 保存原始路徑和文件名
-            self.image_path = file_path
-            self.image_dir = os.path.dirname(file_path)
-            self.image_name = os.path.basename(file_path)
-            self.image_name_without_ext = os.path.splitext(self.image_name)[0]
-            self.image_ext = os.path.splitext(self.image_name)[1]
+        if file_paths:
+            # 清除現有圖片
+            self.original_images = []
+            self.current_images = []
+            self.image_paths = []
+            self.images_list.clear()
             
-            # 使用PIL打開圖片
-            self.original_image = Image.open(file_path)
-            self.update_filter()  # 應用濾鏡
-            self.save_btn.setEnabled(True)  # 啟用保存按鈕
+            # 加載新的圖片
+            for file_path in file_paths:
+                # 保存路徑
+                self.image_paths.append(file_path)
+                
+                # 添加到列表
+                image_name = os.path.basename(file_path)
+                self.images_list.addItem(image_name)
+                
+                # 使用PIL打開圖片
+                try:
+                    img = Image.open(file_path)
+                    self.original_images.append(img)
+                    self.current_images.append(None)  # 先設為None，等待處理
+                except Exception as e:
+                    print(f"無法載入圖片 {file_path}: {e}")
+            
+            # 如果有圖片被載入
+            if self.original_images:
+                self.process_all_btn.setEnabled(True)
+                # 選擇第一張圖片
+                self.images_list.setCurrentRow(0)
+                self.select_image(0)
+    
+    def select_image(self, index):
+        if index < 0 or index >= len(self.original_images):
+            return
+        
+        self.selected_image_index = index
+        self.update_filter()  # 應用濾鏡
+        self.save_btn.setEnabled(True)  # 啟用保存按鈕
     
     def update_filter(self):
-        if self.original_image is None:
+        if not self.original_images or self.selected_image_index < 0:
             return
         
         # 獲取當前滑桿值並更新標籤
@@ -143,15 +239,97 @@ class ColorFilterTool(QMainWindow):
                      "orange", "brown", "pink"][color_index]
         self.filter_color = color_name
         
-        # 應用濾鏡
-        self.apply_filter()
+        # 獲取灰度模式狀態
+        self.gray_mode = self.gray_checkbox.isChecked()
+        
+        # 應用濾鏡到當前選擇的圖片
+        self.apply_filter(self.selected_image_index)
         
         # 更新顯示
         self.update_display()
     
-    def apply_filter(self):
+    def apply_filter(self, index):
+        if index < 0 or index >= len(self.original_images):
+            return
+        
         # 複製原始圖片
-        img = self.original_image.copy()
+        img = self.original_images[index].copy()
+        
+        # 先檢查是否應用灰度模式
+        if self.gray_mode:
+            # 轉換為numpy數組進行處理
+            img_array = np.array(img)
+            
+            # 根據圖片模式處理
+            if img.mode == "RGBA":
+                # 有透明通道，保留完全透明的部分不變
+                alpha_channel = img_array[:, :, 3]
+                
+                # 創建新的圖像數組，初始化為原始圖像
+                gray_array = img_array.copy()
+                
+                # 首先檢測背景像素（這裡有兩種方式：透明度或接近背景顏色）
+                is_background = np.zeros_like(alpha_channel, dtype=bool)
+                
+                # 方式1：完全透明的像素
+                if np.any(alpha_channel < 255):
+                    is_background = (alpha_channel < 128)  # 透明度小於128
+                
+                # 方式2：顏色接近背景顏色的像素
+                br, bg, bb = self.background_color
+                threshold = self.bg_threshold
+                
+                # 計算每個像素與背景顏色的差異
+                color_diff = np.abs(img_array[:, :, 0] - br) + \
+                             np.abs(img_array[:, :, 1] - bg) + \
+                             np.abs(img_array[:, :, 2] - bb)
+                
+                # 合併兩種背景檢測方法
+                is_background = is_background | (color_diff < threshold * 3)
+                
+                # 將非背景部分轉換為灰度
+                # 先計算灰度值
+                gray_values = 0.299 * img_array[:, :, 0] + 0.587 * img_array[:, :, 1] + 0.114 * img_array[:, :, 2]
+                gray_values = gray_values.astype(np.uint8)
+                
+                # 只對非背景部分應用灰度
+                for i in range(3):  # R, G, B通道
+                    gray_array[:, :, i] = np.where(is_background, img_array[:, :, i], gray_values)
+                
+                # 保存處理後的圖片
+                self.current_images[index] = Image.fromarray(gray_array)
+                
+            else:
+                # 沒有透明通道的圖片
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
+                    img_array = np.array(img)
+                
+                # 檢測接近背景顏色的像素
+                br, bg, bb = self.background_color
+                threshold = self.bg_threshold
+                
+                color_diff = np.abs(img_array[:, :, 0] - br) + \
+                             np.abs(img_array[:, :, 1] - bg) + \
+                             np.abs(img_array[:, :, 2] - bb)
+                
+                is_background = (color_diff < threshold * 3)
+                
+                # 創建新的數組，初始化為原始圖像
+                gray_array = img_array.copy()
+                
+                # 計算灰度值
+                gray_values = 0.299 * img_array[:, :, 0] + 0.587 * img_array[:, :, 1] + 0.114 * img_array[:, :, 2]
+                gray_values = gray_values.astype(np.uint8)
+                
+                # 只對非背景部分應用灰度
+                for i in range(3):  # R, G, B通道
+                    gray_array[:, :, i] = np.where(is_background, img_array[:, :, i], gray_values)
+                
+                # 保存處理後的圖片
+                self.current_images[index] = Image.fromarray(gray_array)
+                
+            return
         
         # 獲取濾鏡顏色RGB值
         color_map = {
@@ -186,7 +364,7 @@ class ColorFilterTool(QMainWindow):
             tinted_array = np.clip(tinted_array, 0, 255).astype(np.uint8)
             
             # 保存處理後的圖片
-            self.current_image = Image.fromarray(tinted_array)
+            self.current_images[index] = Image.fromarray(tinted_array)
         else:
             # 非RGBA圖片處理
             if img.mode != "RGB":
@@ -203,56 +381,88 @@ class ColorFilterTool(QMainWindow):
             tinted_array = np.clip(tinted_array, 0, 255).astype(np.uint8)
             
             # 保存處理後的圖片
-            self.current_image = Image.fromarray(tinted_array)
+            self.current_images[index] = Image.fromarray(tinted_array)
     
     def update_display(self):
+        if self.selected_image_index < 0 or not self.original_images:
+            return
+            
         # 顯示原始圖片
-        original_img = self.original_image.copy()
-        original_img.thumbnail((400, 300))  # 調整大小以適應顯示區域
+        original_img = self.original_images[self.selected_image_index].copy()
+        original_img.thumbnail((500, 300))  # 調整大小以適應顯示區域
         original_qimg = self.pil_to_qimage(original_img)
         original_pixmap = QPixmap.fromImage(original_qimg)
         self.original_label.setPixmap(original_pixmap)
         
         # 顯示處理後的圖片
-        filtered_img = self.current_image.copy()
-        filtered_img.thumbnail((400, 300))  # 調整大小以適應顯示區域
-        filtered_qimg = self.pil_to_qimage(filtered_img)
-        filtered_pixmap = QPixmap.fromImage(filtered_qimg)
-        self.filtered_label.setPixmap(filtered_pixmap)
+        if self.current_images[self.selected_image_index] is not None:
+            filtered_img = self.current_images[self.selected_image_index].copy()
+            filtered_img.thumbnail((500, 300))  # 調整大小以適應顯示區域
+            filtered_qimg = self.pil_to_qimage(filtered_img)
+            filtered_pixmap = QPixmap.fromImage(filtered_qimg)
+            self.filtered_label.setPixmap(filtered_pixmap)
     
     def pil_to_qimage(self, pil_image):
         # 將PIL圖像轉換為QImage
         if pil_image.mode == "RGB":
-            r, g, b = pil_image.split()
-            img = QImage(pil_image.size[0], pil_image.size[1], QImage.Format.Format_RGB32)
-            for x in range(pil_image.size[0]):
-                for y in range(pil_image.size[1]):
-                    img.setPixel(x, y, (r.getpixel((x, y)) << 16) | 
-                                      (g.getpixel((x, y)) << 8) | 
-                                       b.getpixel((x, y)))
-            return img
+            data = pil_image.convert("RGB").tobytes("raw", "RGB")
+            return QImage(data, pil_image.size[0], pil_image.size[1], pil_image.size[0] * 3, QImage.Format.Format_RGB888)
         elif pil_image.mode == "RGBA":
             data = pil_image.convert("RGBA").tobytes("raw", "RGBA")
-            return QImage(data, pil_image.size[0], pil_image.size[1], QImage.Format.Format_RGBA8888)
+            return QImage(data, pil_image.size[0], pil_image.size[1], pil_image.size[0] * 4, QImage.Format.Format_RGBA8888)
+        elif pil_image.mode == "L":
+            # 灰度圖像
+            data = pil_image.tobytes("raw", "L")
+            return QImage(data, pil_image.size[0], pil_image.size[1], pil_image.size[0], QImage.Format.Format_Grayscale8)
         else:
             # 轉換其他模式為RGB
             pil_image = pil_image.convert("RGB")
             return self.pil_to_qimage(pil_image)
     
+    def process_and_save_all(self):
+        # 處理所有圖片
+        for i in range(len(self.original_images)):
+            # 應用濾鏡
+            self.apply_filter(i)
+            
+            # 保存處理後的圖片
+            self.save_specific_image(i)
+        
+        # 顯示完成消息
+        QMessageBox.information(self, "處理完成", f"已處理並保存 {len(self.original_images)} 張圖片")
+    
     def save_image(self):
-        if self.current_image is None:
+        if self.selected_image_index < 0 or not self.current_images[self.selected_image_index]:
             return
         
-        # 生成新的文件名
-        color_suffix = f"_{self.filter_color}"
-        new_filename = f"{self.image_name_without_ext}{color_suffix}{self.image_ext}"
-        save_path = os.path.join(self.image_dir, new_filename)
-        
-        # 保存圖片
-        self.current_image.save(save_path)
+        # 保存當前選中的圖片
+        self.save_specific_image(self.selected_image_index)
         
         # 顯示保存成功消息
-        self.statusBar().showMessage(f"圖片已保存為 {new_filename}", 3000)
+        file_name = os.path.basename(self.image_paths[self.selected_image_index])
+        self.statusBar().showMessage(f"圖片已保存: {file_name}", 3000)
+    
+    def save_specific_image(self, index):
+        if index < 0 or index >= len(self.image_paths) or not self.current_images[index]:
+            return
+        
+        # 獲取原始路徑信息
+        file_path = self.image_paths[index]
+        image_dir = os.path.dirname(file_path)
+        image_name = os.path.basename(file_path)
+        image_name_without_ext, image_ext = os.path.splitext(image_name)
+        
+        # 根據處理模式確定新文件名
+        if self.gray_mode:
+            suffix = "_gray"
+        else:
+            suffix = f"_{self.filter_color}"
+        
+        new_filename = f"{image_name_without_ext}{suffix}{image_ext}"
+        save_path = os.path.join(image_dir, new_filename)
+        
+        # 保存圖片
+        self.current_images[index].save(save_path)
 
 
 if __name__ == "__main__":

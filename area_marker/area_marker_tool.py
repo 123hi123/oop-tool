@@ -786,19 +786,22 @@ class AreaMarkerTool(QMainWindow):
     
     def generate_data_format(self):
         """生成數據格式，返回格式化的字符串"""
-        result = []
-        
-        # 不能放的區域
+        # 陸地部分（不能放的）
+        land_parts = []
         if self.areas["不能放的"]:
             for rect in self.areas["不能放的"]:
-                result.append("{" + f"glm::vec2({rect[0][0]:.1f}, {rect[0][1]:.1f}),glm::vec2({rect[1][0]:.1f}, {rect[1][1]:.1f})" + "}")
+                land_parts.append("{" + f"glm::vec2({rect[0][0]:.1f}, {rect[0][1]:.1f}),glm::vec2({rect[1][0]:.1f}, {rect[1][1]:.1f})" + "}")
         
-        # 水路區域
+        # 水路部分
+        water_parts = []
         if self.areas["水路"]:
             for rect in self.areas["水路"]:
-                result.append("{" + f"glm::vec2({rect[0][0]:.1f}, {rect[0][1]:.1f}),glm::vec2({rect[1][0]:.1f}, {rect[1][1]:.1f})" + "}")
+                water_parts.append("{" + f"glm::vec2({rect[0][0]:.1f}, {rect[0][1]:.1f}),glm::vec2({rect[1][0]:.1f}, {rect[1][1]:.1f})" + "}")
         
-        return ",".join(result)
+        # 組合兩個部分，確保即使沒有區域也會有空括號
+        result = "{" + ",".join(land_parts) + "},{" + ",".join(water_parts) + "}"
+        
+        return result
     
     def copy_raw_to_clipboard(self):
         """複製 Raw 數據到剪貼板"""

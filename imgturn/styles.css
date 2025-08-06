@@ -1,0 +1,138 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "微軟正黑體", "Microsoft JhengHei", sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #444;
+}
+
+.upload-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.upload-label {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.upload-label:hover {
+    background-color: #45a049;
+}
+
+#image-upload {
+    display: none;
+}
+
+.preview-container {
+    margin: 20px auto;
+    width: 100%;
+    max-width: 600px;
+    height: 400px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMC45bDN+TgAAABpJREFUOE9jZGBgEAFifOANxMSDbwN5kMT/AQA0kQn5vUCLFwAAAABJRU5ErkJggg==");
+    background-repeat: repeat;
+    transition: border-color 0.3s ease;
+}
+
+.preview-container.highlight {
+    border-color: #2196F3;
+    background-color: rgba(33, 150, 243, 0.1);
+}
+
+.preview-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#preview-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+.controls {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.slider-container {
+    width: 80%;
+    text-align: center;
+}
+
+#rotation-slider {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.buttons-container {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+#reset-button, #download-button {
+    padding: 8px 20px;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#reset-button {
+    background-color: #2196F3;
+}
+
+#reset-button:hover {
+    background-color: #0b7dda;
+}
+
+#download-button {
+    background-color: #4CAF50;
+}
+
+#download-button:hover {
+    background-color: #45a049;
+}
+
+#download-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+} 
